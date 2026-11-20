@@ -1,129 +1,80 @@
 import * as THREE from 'three';
 import './style.css';
-import { MAP_CENTER, GEO_ANCHORS } from './map-data.js';
+import { MAP_CENTER } from './map-data.js';
 
-const root = document.querySelector('#scene');
-const connection = document.querySelector('#connection');
-const playersLabel = document.querySelector('#players');
-const clockLabel = document.querySelector('#clock');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xb9c8c8);
-scene.fog = new THREE.Fog(0xb9c8c8, 240, 1050);
-const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, .1, 1800);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
-renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-root.appendChild(renderer.domElement);
-
-scene.add(new THREE.HemisphereLight(0xe8f1f4, 0x77674f, 2));
-const sun = new THREE.DirectionalLight(0xffe3bd, 3);
-sun.position.set(-260, 420, 180);
-sun.castShadow = true;
-scene.add(sun);
-const material = (color) => new THREE.MeshStandardMaterial({ color, roughness: .9 });
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500), material(0xc9b99b));
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
-
-function box(w,h,d,x,y,z,color) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), material(color));
-  mesh.position.set(x,y,z); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
-  return mesh;
-}
-function world(lat, lon) {
-  return { x:(lon-MAP_CENTER.lon)*111320*Math.cos(MAP_CENTER.lat*Math.PI/180), z:-(lat-MAP_CENTER.lat)*111320 };
-}
-function label(text, x, y, z) {
-  const c=document.createElement('canvas'); c.width=512; c.height=112;
-  const ctx=c.getContext('2d'); ctx.fillStyle='rgba(15,20,23,.82)';
-  ctx.beginPath(); ctx.roundRect(8,8,496,96,22); ctx.fill();
-  ctx.fillStyle='#fff3d7'; ctx.font='bold 36px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,256,58);
-  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));
-  sprite.position.set(x,y,z); sprite.scale.set(34,7.4,1); scene.add(sprite);
-}
+const sceneRoot=document.querySelector('#scene'), connection=document.querySelector('#connection'), playersLabel=document.querySelector('#players'), clockLabel=document.querySelector('#clock');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0xbac7c7); scene.fog=new THREE.Fog(0xbac7c7,330,1050);
+const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.1,1800);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.65));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;sceneRoot.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xe7f0f3,0x78664e,2.1));
+const sun=new THREE.DirectionalLight(0xffe6c5,3.1);sun.position.set(-220,330,170);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-380;sun.shadow.camera.right=380;sun.shadow.camera.top=380;sun.shadow.camera.bottom=-380;scene.add(sun);
+const mat=(c,r=.88)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(1600,1600),mat(0xc5b697));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+function box(w,h,d,x,y,z,c,rough=.9){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c,rough));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m}
+function world(lat,lon){return{x:(lon-MAP_CENTER.lon)*111320*Math.cos(MAP_CENTER.lat*Math.PI/180),z:-(lat-MAP_CENTER.lat)*111320}}
+function road(w,d,x,z){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),mat(0x41484a,1));m.rotation.x=-Math.PI/2;m.position.set(x,.035,z);m.receiveShadow=true;scene.add(m);return m}
+function line(w,d,x,z,c=0xd4c8a4){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.MeshBasicMaterial({color:c}));m.rotation.x=-Math.PI/2;m.position.set(x,.055,z);scene.add(m)}
+// A coherent first-pass street grid: asphalt, sidewalks, intersections and lane markings.
+for(let p=-360;p<=360;p+=120){road(15,760,p,0);road(760,15,0,p);road(19,760,p+8,0);road(760,19,0,p+8)}
+for(let p=-360;p<=360;p+=120){for(let q=-360;q<=360;q+=120){box(2,.18,2,p, .1,q,0x8b877b)}}
+for(let p=-360;p<=360;p+=120){for(let z=-350;z<350;z+=24){line(.18,9,p-3,z,0xe0d2aa);line(.18,9,p+3,z,0xe0d2aa)}for(let x=-350;x<350;x+=24){line(9,.18,x,p-3,0xe0d2aa);line(9,.18,x,p+3,0xe0d2aa)}}
+// Landmark massing at known anchor coordinates; detailed architectural assets are a later art pass.
 const castle=world(29.81115,39.86717);
-const mound=new THREE.Mesh(new THREE.CylinderGeometry(35,48,9,8),material(0x9b896e));
-mound.position.set(castle.x,4,castle.z); mound.receiveShadow=true; scene.add(mound);
-box(43,13,34,castle.x,12,castle.z,0xa98761);
-for(const [dx,dz] of [[-20,-15],[20,-15],[-20,15],[20,15]]) {
-  const tower=new THREE.Mesh(new THREE.CylinderGeometry(4.3,5.3,20,8),material(0xa98761));
-  tower.position.set(castle.x+dx,14,castle.z+dz); tower.castShadow=true; scene.add(tower);
+const mound=new THREE.Mesh(new THREE.CylinderGeometry(39,51,10,12),mat(0x99846a));mound.position.set(castle.x,5,castle.z);mound.receiveShadow=true;scene.add(mound);
+box(44,16,36,castle.x,13,castle.z,0xa98962);for(const [dx,dz] of [[-21,-17],[21,-17],[-21,17],[21,17]]){const t=new THREE.Mesh(new THREE.CylinderGeometry(4.5,5.2,21,10),mat(0xa88761));t.position.set(castle.x+dx,16,castle.z+dz);t.castShadow=true;scene.add(t)}
+function label(txt,x,y,z){const c=document.createElement('canvas');c.width=512;c.height=100;const ctx=c.getContext('2d');ctx.fillStyle='#172027dd';ctx.beginPath();ctx.roundRect(6,6,500,88,18);ctx.fill();ctx.fillStyle='#f4dfb4';ctx.font='bold 34px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,256,52);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));s.position.set(x,y,z);s.scale.set(30,6,1);scene.add(s)}
+label('قلعة مارد',castle.x,32,castle.z);
+const mosque=world(29.81203,39.86762);box(29,7,20,mosque.x,3.5,mosque.z,0xd7cbb4);const minaret=new THREE.Mesh(new THREE.CylinderGeometry(1.4,2,15,10),mat(0xb8a17e));minaret.position.set(mosque.x-12,11,mosque.z+7);scene.add(minaret);label('مسجد عمر بن الخطاب',mosque.x,22,mosque.z);
+// Dense but varied blocks around the old town; this is procedural placeholder geometry, not a survey-accurate city model.
+let seed=2026;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
+const palette=[0xd6c9b1,0xc8baa2,0xb7a58a,0xe0d6c4,0xaaa18e];
+for(let bx=-330;bx<=330;bx+=120)for(let bz=-330;bz<=330;bz+=120){
+ if(Math.hypot(bx-castle.x,bz-castle.z)<72)continue;
+ for(let i=0;i<5;i++){const x=bx+(rand()-.5)*75,z=bz+(rand()-.5)*75,w=12+rand()*17,d=12+rand()*18,h=5+rand()*11;box(w,h,d,x,h/2,z,palette[Math.floor(rand()*palette.length)]);box(w*.9,.45,d*.9,x,h+.2,z,0x9b8d78)}
 }
-label('قلعة مارد',castle.x,31,castle.z);
-const mosque=world(29.81203,39.86762);
-box(30,7,19,mosque.x,3.5,mosque.z,0xd0c3a9);
-const minaret=new THREE.Mesh(new THREE.CylinderGeometry(1.3,2,13,8),material(0xb49b78));
-minaret.position.set(mosque.x-12,13.5,mosque.z+7); scene.add(minaret);
-label('مسجد عمر بن الخطاب',mosque.x,25,mosque.z);
+// Street lamps and date palms as repeating visual details.
+for(let x=-330;x<=330;x+=60)for(let z=-330;z<=330;z+=120){if(rand()<.45)continue;const pole=new THREE.Mesh(new THREE.CylinderGeometry(.12,.17,5,8),mat(0x555653));pole.position.set(x,2.5,z);scene.add(pole);const lamp=new THREE.Mesh(new THREE.SphereGeometry(.34,8,8),new THREE.MeshBasicMaterial({color:0xffe2a1}));lamp.position.set(x,5,z);scene.add(lamp)}
+function palm(x,z){const g=new THREE.Group();const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.22,.38,5,7),mat(0x806342));trunk.position.y=2.5;g.add(trunk);for(let i=0;i<8;i++){const leaf=new THREE.Mesh(new THREE.ConeGeometry(.28,4.2,5),mat(0x526b45));leaf.rotation.z=Math.PI/2;leaf.rotation.y=i*Math.PI/4;leaf.position.set(Math.cos(i*Math.PI/4)*1.5,5.1,Math.sin(i*Math.PI/4)*1.5);g.add(leaf)}g.position.set(x,0,z);scene.add(g)}
+for(let i=0;i<34;i++)palm(-300+rand()*600,-300+rand()*600);
 
-let seed=31; const rand=()=>{seed=(seed*9301+49297)%233280;return seed/233280};
-for(let x=-250;x<=250;x+=28) for(let z=-235;z<=235;z+=32) {
-  if(Math.hypot(x-castle.x,z-castle.z)<65 || rand()<.25) continue;
-  const h=5+rand()*12; box(12+rand()*6,h,12+rand()*6,x,h/2,z,[0xe1d8c7,0xd1c6b2,0xc4c9c4][Math.floor(rand()*3)]);
+function createPlayer(color=0xeee8dc){
+ const g=new THREE.Group(), cloth=mat(color), skin=mat(0x98694d), dark=mat(0x22272b), white=mat(0xf0eee6);
+ const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.36,.78,6,12),cloth);torso.position.y=1.15;g.add(torso);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.235,18,14),skin);head.position.y=1.9;g.add(head);
+ const cap=new THREE.Mesh(new THREE.CylinderGeometry(.23,.24,.12,16),dark);cap.position.y=2.08;g.add(cap);
+ const scarf=new THREE.Mesh(new THREE.SphereGeometry(.29,16,10,0,Math.PI*2,0,Math.PI/2),white);scarf.position.y=2.12;scarf.scale.set(1.12,.62,1.12);g.add(scarf);
+ const agal=new THREE.Mesh(new THREE.TorusGeometry(.22,.035,8,20),dark);agal.rotation.x=Math.PI/2;agal.position.y=2.17;g.add(agal);
+ const armL=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.55,4,8),cloth);armL.position.set(-.43,1.22,0);armL.rotation.z=-.12;g.add(armL);
+ const armR=armL.clone();armR.position.x=.43;g.add(armR);
+ const legL=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.55,4,8),dark);legL.position.set(-.17,.38,0);g.add(legL);
+ const legR=legL.clone();legR.position.x=.17;g.add(legR);
+ g.userData={armL,armR,legL,legR};scene.add(g);return g;
 }
-for(let i=0;i<22;i++) {
-  const a=i*2.399, r=22+(i%5)*8, p=world(29.811186,39.867053);
-  const x=p.x+Math.cos(a)*r, z=p.z+Math.sin(a)*r;
-  box(8,5,8,x,2.5,z,0x9c8b72);
-}
-label('وسط دومة الجندل',-165,22,-205);
-
-function avatar(color=0x253d4a) {
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.42,.75,5,10),material(color)); body.position.y=1.05; g.add(body);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.27,16,12),material(0xb9825d)); head.position.y=1.82; g.add(head);
-  const ghutra=new THREE.Mesh(new THREE.ConeGeometry(.34,.2,4),material(0xe9e2d2)); ghutra.position.y=2.05; g.add(ghutra);
-  scene.add(g); return g;
-}
-const player=avatar(); player.position.set(-115,0,155);
-const remote=new Map(); const keys={};
-let yaw=0, pitch=-.16, mode='third', dragging=false, lastX=0, lastY=0;
-addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyV')mode=mode==='third'?'first':'third'});
-addEventListener('keyup',e=>keys[e.code]=false);
-renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;renderer.domElement.setPointerCapture(e.pointerId)});
-renderer.domElement.addEventListener('pointerup',()=>dragging=false);
-renderer.domElement.addEventListener('pointermove',e=>{if(!dragging)return;yaw-=(e.clientX-lastX)*.004;pitch=THREE.MathUtils.clamp(pitch+(e.clientY-lastY)*.003,-.8,.35);lastX=e.clientX;lastY=e.clientY});
-
-let socket, myId=null, online=false;
-function connect(){
-  const proto=location.protocol==='https:'?'wss':'ws';
-  const endpoint = import.meta.env.VITE_WS_URL || `${proto}://${location.hostname}:2567`;
-  socket=new WebSocket(endpoint);
-  socket.addEventListener('open',()=>{online=true;connection.textContent='متصل بالخادم';connection.style.color='#a8d8ad'});
-  socket.addEventListener('message',e=>{
-    const msg=JSON.parse(e.data);
-    if(msg.type==='welcome'){myId=msg.id;return}
-    if(msg.type!=='state')return;
-    const list=msg.players||[]; playersLabel.textContent=String(list.length);
-    const seen=new Set();
-    for(const p of list){if(p.id===myId)continue;seen.add(p.id);let a=remote.get(p.id);if(!a){a=avatar(0x8b5d37);remote.set(p.id,a)}a.position.set(p.x,0,p.z)}
-    for(const [id,a] of remote)if(!seen.has(id)){scene.remove(a);remote.delete(id)}
-  });
-  socket.addEventListener('close',()=>{online=false;connection.textContent='غير متصل — شغّل الخادم';connection.style.color='#e4a09a'});
-  socket.addEventListener('error',()=>connection.textContent='تعذّر الاتصال');
-}
-connect();
-let elapsed=0,lastSend=0;
-function animate(now){
-  requestAnimationFrame(animate);
-  const dt=Math.min((now-(animate.last||now))/1000,.05);animate.last=now;elapsed+=dt;
-  const f=(keys.KeyW?1:0)-(keys.KeyS?1:0), s=(keys.KeyD?1:0)-(keys.KeyA?1:0);
-  const dir=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
-  const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-  const move=dir.multiplyScalar(f).add(right.multiplyScalar(s));
-  if(move.lengthSq()){move.normalize().multiplyScalar(((keys.ShiftLeft||keys.ShiftRight)?9:5.2)*dt);player.position.add(move);player.rotation.y=Math.atan2(-move.x,-move.z)}
-  player.position.x=THREE.MathUtils.clamp(player.position.x,-420,420);
-  player.position.z=THREE.MathUtils.clamp(player.position.z,-420,420);
-  const target=new THREE.Vector3(player.position.x,mode==='first'?1.65:1.35,player.position.z);
-  if(mode==='third'){camera.position.lerp(target.clone().add(new THREE.Vector3(Math.sin(yaw)*7,3.1,Math.cos(yaw)*7)),.12);camera.lookAt(target)}
-  else{camera.position.lerp(target,.35);camera.lookAt(target.clone().add(new THREE.Vector3(-Math.sin(yaw)*10,Math.sin(pitch)*5,-Math.cos(yaw)*10)))}
-  if(online&&now-lastSend>65){socket.send(JSON.stringify({type:'move',x:player.position.x,z:player.position.z,rotation:player.rotation.y}));lastSend=now}
-  const mins=Math.floor(elapsed*2);clockLabel.textContent=`${String((8+Math.floor(mins/60))%24).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`;
-  renderer.render(scene,camera);
-}
+const player=createPlayer(), remotes=new Map();player.position.set(-42,0,80);
+const keys={};let yaw=0,pitch=-.12,mode='third',elapsed=0,lastSend=0;
+addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyV')mode=mode==='third'?'first':'third'});addEventListener('keyup',e=>keys[e.code]=false);
+const stick=document.querySelector('#stick'),knob=document.querySelector('#knob'),runBtn=document.querySelector('#runBtn'),cameraBtn=document.querySelector('#cameraBtn');
+let joy={x:0,y:0},joyId=null,running=false,lookId=null,lastLookX=0,lastLookY=0;
+stick.addEventListener('pointerdown',e=>{joyId=e.pointerId;stick.setPointerCapture(joyId);updateJoy(e)});
+stick.addEventListener('pointermove',e=>{if(e.pointerId===joyId)updateJoy(e)});
+function updateJoy(e){const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,len=Math.hypot(dx,dy),max=42,k=Math.min(1,max/(len||1));joy.x=dx*k/max;joy.y=dy*k/max;knob.style.transform='translate('+dx*k+'px,'+dy*k+'px)'}
+function releaseJoy(e){if(e.pointerId!==joyId)return;joyId=null;joy={x:0,y:0};knob.style.transform='translate(0,0)'}stick.addEventListener('pointerup',releaseJoy);stick.addEventListener('pointercancel',releaseJoy);
+runBtn.addEventListener('pointerdown',()=>{running=true;runBtn.classList.add('active')});['pointerup','pointercancel','pointerleave'].forEach(ev=>runBtn.addEventListener(ev,()=>{running=false;runBtn.classList.remove('active')}));
+cameraBtn.addEventListener('click',()=>mode=mode==='third'?'first':'third');
+renderer.domElement.addEventListener('pointerdown',e=>{if(e.clientX>innerWidth*.48&&innerWidth<950){lookId=e.pointerId;lastLookX=e.clientX;lastLookY=e.clientY}});
+renderer.domElement.addEventListener('pointermove',e=>{if(lookId!==e.pointerId)return;yaw-=(e.clientX-lastLookX)*.006;pitch=THREE.MathUtils.clamp(pitch+(e.clientY-lastLookY)*.003,-.7,.25);lastLookX=e.clientX;lastLookY=e.clientY});
+['pointerup','pointercancel'].forEach(ev=>renderer.domElement.addEventListener(ev,e=>{if(e.pointerId===lookId)lookId=null}));
+let socket,myId=null,online=false;
+function connect(){const url=import.meta.env.VITE_WS_URL||'wss://lamhah-life-multiplayer.onrender.com';socket=new WebSocket(url);socket.addEventListener('open',()=>{online=true;connection.textContent='متصل بالخادم'});socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.type==='welcome'){myId=m.id;return}if(m.type!=='state')return;const list=m.players||[];playersLabel.textContent=list.length;const seen=new Set();for(const p of list){if(p.id===myId)continue;seen.add(p.id);let a=remotes.get(p.id);if(!a){a=createPlayer(0x9caaaf);remotes.set(p.id,a)}a.position.set(p.x,0,p.z);a.rotation.y=p.rotation||0}for(const[id,a]of remotes)if(!seen.has(id)){scene.remove(a);remotes.delete(id)}});socket.addEventListener('close',()=>{online=false;connection.textContent='إعادة الاتصال…';setTimeout(()=>{if(!online)connect()},3500)});socket.addEventListener('error',()=>{connection.textContent='الاتصال غير مستقر'})}connect();
+function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-(animate.last||now))/1000,.05);animate.last=now;elapsed+=dt;
+ const forward=(keys.KeyW?1:0)-(keys.KeyS?1:0)-joy.y,right=(keys.KeyD?1:0)-(keys.KeyA?1:0)+joy.x;
+ const move=new THREE.Vector3(-Math.sin(yaw)*forward+Math.cos(yaw)*right,0,-Math.cos(yaw)*forward-Math.sin(yaw)*right);
+ if(move.lengthSq()>.01){move.normalize().multiplyScalar((running||keys.ShiftLeft?8.5:5.2)*dt);player.position.add(move);player.rotation.y=Math.atan2(-move.x,-move.z);const phase=now*.012;player.userData.legL.rotation.x=Math.sin(phase)*.55;player.userData.legR.rotation.x=-Math.sin(phase)*.55;player.userData.armL.rotation.x=-Math.sin(phase)*.3;player.userData.armR.rotation.x=Math.sin(phase)*.3}else{Object.values(player.userData).forEach(o=>o.rotation.x*=.8)}
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-430,430);player.position.z=THREE.MathUtils.clamp(player.position.z,-430,430);
+ const target=new THREE.Vector3(player.position.x,mode==='first'?1.7:1.45,player.position.z);
+ if(mode==='third'){camera.position.lerp(target.clone().add(new THREE.Vector3(Math.sin(yaw)*7,3.3,Math.cos(yaw)*7)),.13);camera.lookAt(target)}else{camera.position.lerp(target,.35);camera.lookAt(target.clone().add(new THREE.Vector3(-Math.sin(yaw)*10,Math.sin(pitch)*5,-Math.cos(yaw)*10)))}
+ if(online&&now-lastSend>80&&socket.readyState===1){socket.send(JSON.stringify({type:'move',x:player.position.x,z:player.position.z,rotation:player.rotation.y}));lastSend=now}
+ const minutes=Math.floor(elapsed*2);clockLabel.textContent=String((8+Math.floor(minutes/60))%24).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');renderer.render(scene,camera)}
 requestAnimationFrame(animate);
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
