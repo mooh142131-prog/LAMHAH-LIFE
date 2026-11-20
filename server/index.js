@@ -16,8 +16,8 @@ wss.on('connection', (ws) => {
     if (message.type !== 'move') return;
     const player = players.get(id);
     if (!player) return;
-    player.x = Math.max(-105, Math.min(105, Number(message.x) || 0));
-    player.z = Math.max(-105, Math.min(105, Number(message.z) || 0));
+    player.x = Math.max(-500, Math.min(500, Number(message.x) || 0));
+    player.z = Math.max(-500, Math.min(500, Number(message.z) || 0));
     player.rotation = Number(message.rotation) || 0;
   });
 
