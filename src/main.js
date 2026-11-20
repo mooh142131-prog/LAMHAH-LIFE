@@ -38,18 +38,73 @@ for(let x=-330;x<=330;x+=60)for(let z=-330;z<=330;z+=120){if(rand()<.45)continue
 function palm(x,z){const g=new THREE.Group();const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.22,.38,5,7),mat(0x806342));trunk.position.y=2.5;g.add(trunk);for(let i=0;i<8;i++){const leaf=new THREE.Mesh(new THREE.ConeGeometry(.28,4.2,5),mat(0x526b45));leaf.rotation.z=Math.PI/2;leaf.rotation.y=i*Math.PI/4;leaf.position.set(Math.cos(i*Math.PI/4)*1.5,5.1,Math.sin(i*Math.PI/4)*1.5);g.add(leaf)}g.position.set(x,0,z);scene.add(g)}
 for(let i=0;i<34;i++)palm(-300+rand()*600,-300+rand()*600);
 
-function createPlayer(color=0xeee8dc){
- const g=new THREE.Group(), cloth=mat(color), skin=mat(0x98694d), dark=mat(0x22272b), white=mat(0xf0eee6);
- const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.36,.78,6,12),cloth);torso.position.y=1.15;g.add(torso);
- const head=new THREE.Mesh(new THREE.SphereGeometry(.235,18,14),skin);head.position.y=1.9;g.add(head);
- const cap=new THREE.Mesh(new THREE.CylinderGeometry(.23,.24,.12,16),dark);cap.position.y=2.08;g.add(cap);
- const scarf=new THREE.Mesh(new THREE.SphereGeometry(.29,16,10,0,Math.PI*2,0,Math.PI/2),white);scarf.position.y=2.12;scarf.scale.set(1.12,.62,1.12);g.add(scarf);
- const agal=new THREE.Mesh(new THREE.TorusGeometry(.22,.035,8,20),dark);agal.rotation.x=Math.PI/2;agal.position.y=2.17;g.add(agal);
- const armL=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.55,4,8),cloth);armL.position.set(-.43,1.22,0);armL.rotation.z=-.12;g.add(armL);
- const armR=armL.clone();armR.position.x=.43;g.add(armR);
- const legL=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.55,4,8),dark);legL.position.set(-.17,.38,0);g.add(legL);
- const legR=legL.clone();legR.position.x=.17;g.add(legR);
- g.userData={armL,armR,legL,legR};scene.add(g);return g;
+function createPlayer(color=0xf2eee5){
+ // Detailed human-proportioned Gulf male avatar: layered thobe, articulated limbs,
+ // facial features, ghutra folds, agal, hands and leather sandals.
+ const root=new THREE.Group();
+ const makeMat=(color,rough=.82,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness:rough,metalness});
+ const thobeMat=makeMat(color,.94), skin=makeMat(0x986b50,.9), skinLight=makeMat(0xb98564,.88);
+ const dark=makeMat(0x242321,.8), ghutraMat=makeMat(0xf7f4eb,.96), ghutraShade=makeMat(0xd9d5ca,.98);
+ const seamMat=makeMat(0xd6d0c3,1), shoeMat=makeMat(0x33271f,.8);
+ const add=(parent,geo,material,pos,rot)=>{const m=new THREE.Mesh(geo,material);m.position.set(...pos);if(rot)m.rotation.set(...rot);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m};
+ const capsule=(r,len,material,parent,pos)=>add(parent,new THREE.CapsuleGeometry(r,len,7,12),material,pos);
+ // Neck and body, with a gently tapered flowing thobe silhouette.
+ const body=new THREE.Group();root.add(body);
+ add(body,new THREE.CylinderGeometry(.205,.29,.16,24),thobeMat,[0,1.53,0]);
+ const robePts=[new THREE.Vector2(.19,0),new THREE.Vector2(.205,.12),new THREE.Vector2(.235,.38),new THREE.Vector2(.27,.78),new THREE.Vector2(.31,1.12),new THREE.Vector2(.28,1.42),new THREE.Vector2(.20,1.50),new THREE.Vector2(0,1.50)];
+ const robe=add(body,new THREE.LatheGeometry(robePts,32),thobeMat,[0,.08,0]);robe.scale.z=1.08;
+ // front placket and buttons
+ add(body,new THREE.BoxGeometry(.025,.55,.012),seamMat,[0,1.19,.274]);
+ for(let y=1.36;y>0.92;y-=.11)add(body,new THREE.SphereGeometry(.018,8,8),dark,[.035,y,.285]);
+ // neck and head
+ capsule(.105,.12,skin,root,[0,1.67,0]);
+ const head=new THREE.Group();head.position.set(0,1.91,0);root.add(head);
+ add(head,new THREE.SphereGeometry(.17,24,20),skin,[0,0,0]);
+ add(head,new THREE.SphereGeometry(.105,16,12),skinLight,[0,-.045,.115]).scale.set(1,.68,.65);
+ // ears
+ for(const s of [-1,1])add(head,new THREE.SphereGeometry(.042,12,10),skin,[s*.17,-.005,0]);
+ // eyes, brows, nose and mouth facing +Z
+ for(const s of [-1,1]){
+  add(head,new THREE.SphereGeometry(.018,10,8),makeMat(0xf5eee4),[s*.064,.025,.148]);
+  add(head,new THREE.SphereGeometry(.009,8,8),dark,[s*.064,.025,.164]);
+  add(head,new THREE.BoxGeometry(.055,.012,.018),dark,[s*.064,.066,.145],[0,0,s*-.08]);
+ }
+ add(head,new THREE.ConeGeometry(.025,.075,8),skinLight,[0,-.005,.17],[Math.PI/2,0,0]);
+ add(head,new THREE.BoxGeometry(.055,.009,.012),makeMat(0x593b32),[0,-.09,.15]);
+ // Ghutra crown and two natural hanging side panels.
+ const crown=add(head,new THREE.SphereGeometry(.205,24,14,0,Math.PI*2,0,Math.PI/2),ghutraMat,[0,.13,0]);crown.scale.set(1.12,.75,1.08);
+ const panelGeo=new THREE.BoxGeometry(.13,.39,.035);
+ const left=add(head,panelGeo,ghutraMat,[-.145,-.12,-.005],[0,0,-.08]);
+ const right=add(head,panelGeo,ghutraMat,[.145,-.12,-.005],[0,0,.08]);
+ left.scale.y=1.2;right.scale.y=1.2;
+ // black agal rings resting on the ghutra
+ const agal=add(head,new THREE.TorusGeometry(.17,.025,10,32),dark,[0,.135,0],[Math.PI/2,0,0]);agal.scale.set(1.08,1,1);
+ add(head,new THREE.TorusGeometry(.145,.012,8,28),makeMat(0x39332b),[0,.16,0],[Math.PI/2,0,0]);
+ // articulated shoulders, upper arms, sleeves, hands
+ const arms=[];
+ for(const s of [-1,1]){
+  const shoulder=new THREE.Group();shoulder.position.set(s*.285,1.48,0);root.add(shoulder);
+  capsule(.105,.28,thobeMat,shoulder,[s*.025,-.20,0]).rotation.z=s*-.12;
+  capsule(.082,.24,thobeMat,shoulder,[s*.04,-.43,.005]).rotation.z=s*-.08;
+  const cuff=add(shoulder,new THREE.CylinderGeometry(.083,.09,.055,16),seamMat,[s*.04,-.55,0]);
+  const hand=new THREE.Group();hand.position.set(s*.04,-.65,.01);shoulder.add(hand);
+  capsule(.055,.10,skin,hand,[0,-.015,.005]);
+  for(let f=0;f<4;f++)capsule(.012,.045,skin,hand,[s*(f-1.5)*.022,-.07,.025]);
+  arms.push(shoulder);
+ }
+ // trousers and legs with knees, ankles, shoes
+ const legs=[];
+ for(const s of [-1,1]){
+  const leg=new THREE.Group();leg.position.set(s*.105,.43,0);root.add(leg);
+  capsule(.105,.40,dark,leg,[0,-.12,0]);
+  add(leg,new THREE.CylinderGeometry(.072,.078,.12,14),dark,[0,-.39,0]);
+  add(leg,new THREE.BoxGeometry(.14,.085,.25),shoeMat,[0,-.47,.045]);
+  legs.push(leg);
+ }
+ // subtle shoulder seam and collar
+ add(body,new THREE.TorusGeometry(.09,.012,8,24),seamMat,[0,1.54,.01],[Math.PI/2,0,0]);
+ root.userData={arms,legs,body,head};root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
+ scene.add(root);return root;
 }
 const player=createPlayer(), remotes=new Map();player.position.set(-42,0,80);
 const keys={};let yaw=0,pitch=-.12,mode='third',elapsed=0,lastSend=0;
