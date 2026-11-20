@@ -91,7 +91,8 @@ renderer.domElement.addEventListener('pointermove',e=>{if(!dragging)return;yaw-=
 let socket, myId=null, online=false;
 function connect(){
   const proto=location.protocol==='https:'?'wss':'ws';
-  socket=new WebSocket(`${proto}://${location.hostname}:2567`);
+  const endpoint = import.meta.env.VITE_WS_URL || `${proto}://${location.hostname}:2567`;
+  socket=new WebSocket(endpoint);
   socket.addEventListener('open',()=>{online=true;connection.textContent='متصل بالخادم';connection.style.color='#a8d8ad'});
   socket.addEventListener('message',e=>{
     const msg=JSON.parse(e.data);
