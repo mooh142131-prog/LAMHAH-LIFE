@@ -67,6 +67,28 @@ renderer.domElement.addEventListener('pointermove',e=>{if(lookId!==e.pointerId)r
 ['pointerup','pointercancel'].forEach(ev=>renderer.domElement.addEventListener(ev,e=>{if(e.pointerId===lookId)lookId=null}));
 let socket,myId=null,online=false;
 function connect(){const url=import.meta.env.VITE_WS_URL||'wss://lamhah-life-multiplayer.onrender.com';socket=new WebSocket(url);socket.addEventListener('open',()=>{online=true;connection.textContent='متصل بالخادم'});socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.type==='welcome'){myId=m.id;return}if(m.type!=='state')return;const list=m.players||[];playersLabel.textContent=list.length;const seen=new Set();for(const p of list){if(p.id===myId)continue;seen.add(p.id);let a=remotes.get(p.id);if(!a){a=createPlayer(0x9caaaf);remotes.set(p.id,a)}a.position.set(p.x,0,p.z);a.rotation.y=p.rotation||0}for(const[id,a]of remotes)if(!seen.has(id)){scene.remove(a);remotes.delete(id)}});socket.addEventListener('close',()=>{online=false;connection.textContent='إعادة الاتصال…';setTimeout(()=>{if(!online)connect()},3500)});socket.addEventListener('error',()=>{connection.textContent='الاتصال غير مستقر'})}connect();
+
+// Compact live minimap: local street grid, historic landmarks and current player heading.
+const mini=document.querySelector('#minimapCanvas'), miniCtx=mini.getContext('2d');
+function drawMinimap(){
+ const c=miniCtx,w=mini.width,h=mini.height,scale=w/900;
+ c.clearRect(0,0,w,h);c.fillStyle='#c9c0a8';c.fillRect(0,0,w,h);
+ // Neighborhood blocks
+ c.fillStyle='#b5aa91';
+ for(let x=-390;x<420;x+=120)for(let z=-390;z<420;z+=120)c.fillRect((x+450)*scale+5,(z+450)*scale+5,105*scale,105*scale);
+ // Street network
+ c.strokeStyle='#f0e8d6';c.lineWidth=13*scale;
+ for(let p=-360;p<=360;p+=120){c.beginPath();c.moveTo((p+450)*scale,0);c.lineTo((p+450)*scale,h);c.stroke();c.beginPath();c.moveTo(0,(p+450)*scale);c.lineTo(w,(p+450)*scale);c.stroke()}
+ c.strokeStyle='#656a68';c.lineWidth=8*scale;
+ for(let p=-360;p<=360;p+=120){c.beginPath();c.moveTo((p+450)*scale,0);c.lineTo((p+450)*scale,h);c.stroke();c.beginPath();c.moveTo(0,(p+450)*scale);c.lineTo(w,(p+450)*scale);c.stroke()}
+ // Castle / mosque map pins from geographic anchors converted into game coordinates
+ const pins=[{p:castle,color:'#b37a35'},{p:mosque,color:'#718b72'}];
+ for(const pin of pins){const x=(pin.p.x+450)*scale,y=(pin.p.z+450)*scale;c.fillStyle=pin.color;c.beginPath();c.arc(x,y,5,0,Math.PI*2);c.fill();c.strokeStyle='#fff4df';c.lineWidth=1.5;c.stroke()}
+ // Player marker and heading
+ const px=(player.position.x+450)*scale,py=(player.position.z+450)*scale;
+ c.save();c.translate(px,py);c.rotate(player.rotation.y);c.fillStyle='#e65343';c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();c.moveTo(0,-9);c.lineTo(6,7);c.lineTo(0,4);c.lineTo(-6,7);c.closePath();c.fill();c.stroke();c.restore();
+}
+
 function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-(animate.last||now))/1000,.05);animate.last=now;elapsed+=dt;
  const forward=(keys.KeyW?1:0)-(keys.KeyS?1:0)-joy.y,right=(keys.KeyD?1:0)-(keys.KeyA?1:0)+joy.x;
  const move=new THREE.Vector3(-Math.sin(yaw)*forward+Math.cos(yaw)*right,0,-Math.cos(yaw)*forward-Math.sin(yaw)*right);
@@ -75,6 +97,6 @@ function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-(ani
  const target=new THREE.Vector3(player.position.x,mode==='first'?1.7:1.45,player.position.z);
  if(mode==='third'){camera.position.lerp(target.clone().add(new THREE.Vector3(Math.sin(yaw)*7,3.3,Math.cos(yaw)*7)),.13);camera.lookAt(target)}else{camera.position.lerp(target,.35);camera.lookAt(target.clone().add(new THREE.Vector3(-Math.sin(yaw)*10,Math.sin(pitch)*5,-Math.cos(yaw)*10)))}
  if(online&&now-lastSend>80&&socket.readyState===1){socket.send(JSON.stringify({type:'move',x:player.position.x,z:player.position.z,rotation:player.rotation.y}));lastSend=now}
- const minutes=Math.floor(elapsed*2);clockLabel.textContent=String((8+Math.floor(minutes/60))%24).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');renderer.render(scene,camera)}
+ const minutes=Math.floor(elapsed*2);clockLabel.textContent=String((8+Math.floor(minutes/60))%24).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');renderer.render(scene,camera);drawMinimap()}
 requestAnimationFrame(animate);
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
